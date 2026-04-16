@@ -19,10 +19,11 @@ class NPuzzleGUI:
         self.text_secondary = "#94a3b8"
         
         self.root.configure(bg=self.bg_color)
-        self.root.geometry("370x600")
+        self.root.geometry("400x700")
         self.root.resizable(False, False)
         
-        self.board = [1, 2, 3, 4, 5, 6, 7, 8, 0] # Goal state
+        self.size = 3
+        self.board = []
         self.buttons = []
         self.is_solving = False
         self.moves = 0
@@ -30,7 +31,6 @@ class NPuzzleGUI:
         
         self.main_container = tk.Frame(self.root, bg=self.bg_color)
         self.main_container.pack(expand=True, fill="both")
-        
         
         # Load Win Image (Animated WebP support)
         self.win_image_path = os.path.join("images", "5d52c915-ea5b-40c7-8f44-4a8f3879e7f1.webp")
@@ -41,15 +41,24 @@ class NPuzzleGUI:
         if os.path.exists(self.win_image_path):
             try:
                 img = Image.open(self.win_image_path)
-                # Check if it's animated
                 n_frames = getattr(img, "n_frames", 1)
                 for i in range(n_frames):
                     img.seek(i)
-                    # Convert to RGBA and resize
                     frame = img.convert("RGBA").resize((200, 200), Image.Resampling.LANCZOS)
                     self.win_frames.append(ImageTk.PhotoImage(frame))
             except Exception as e:
                 print(f"Error loading win image: {e}")
+
+        # Load Splash Image
+        self.splash_image_path = os.path.join("images", "splash.png")
+        self.splash_photo = None
+        if os.path.exists(self.splash_image_path):
+            try:
+                img = Image.open(self.splash_image_path)
+                img = img.resize((240, 240), Image.Resampling.LANCZOS)
+                self.splash_photo = ImageTk.PhotoImage(img)
+            except Exception as e:
+                print(f"Error loading splash image: {e}")
 
         self.show_menu()
 
@@ -60,8 +69,13 @@ class NPuzzleGUI:
             except:
                 pass
 
+    def stop_sound(self):
+        try:
+            winsound.PlaySound(None, winsound.SND_PURGE)
+        except:
+            pass
+
     def clear_container(self):
-        # Cancel any active animation loops
         if self.win_animation_id:
             self.root.after_cancel(self.win_animation_id)
             self.win_animation_id = None
@@ -74,22 +88,49 @@ class NPuzzleGUI:
         return f"{mins:02d}:{secs:02d}"
 
     def show_menu(self):
+        self.stop_sound()
         self.clear_container()
+        self.root.geometry("400x700")
         
         menu_content = tk.Frame(self.main_container, bg=self.bg_color)
         menu_content.place(relx=0.5, rely=0.5, anchor="center")
         
         tk.Label(menu_content, text="N-Puzzle", font=("Helvetica", 36, "bold"), 
-                 bg=self.bg_color, fg=self.text_primary, pady=20).pack()
+                 bg=self.bg_color, fg=self.text_primary, pady=10).pack()
+
+        if self.splash_photo:
+            tk.Label(menu_content, image=self.splash_photo, bg=self.bg_color).pack(pady=10)
 
         tk.Button(menu_content, text="Start Game", font=("Helvetica", 16, "bold"),
                   bg=self.accent_color, fg="white", width=20, pady=10, relief="flat",
-                  cursor="hand2", command=self.start_game).pack(pady=40)
+                  cursor="hand2", command=self.show_size_selection).pack(pady=30)
 
         tk.Label(menu_content, text="Made by Mohamed Wael", font=("Helvetica", 12),
                  bg=self.bg_color, fg=self.text_secondary).pack(pady=20)
 
-    def start_game(self):
+    def show_size_selection(self):
+        self.stop_sound()
+        self.clear_container()
+        
+        selection_content = tk.Frame(self.main_container, bg=self.bg_color)
+        selection_content.place(relx=0.5, rely=0.5, anchor="center")
+        
+        tk.Label(selection_content, text="Choose Grid Size", font=("Helvetica", 24, "bold"), 
+                 bg=self.bg_color, fg=self.text_primary, pady=20).pack()
+
+        tk.Button(selection_content, text="3 x 3", font=("Helvetica", 14, "bold"),
+                  bg="#334155", fg="white", width=20, pady=10, relief="flat",
+                  cursor="hand2", command=lambda: self.initialize_game(3)).pack(pady=10)
+
+        tk.Button(selection_content, text="4 x 4", font=("Helvetica", 14, "bold"),
+                  bg="#334155", fg="white", width=20, pady=10, relief="flat",
+                  cursor="hand2", command=lambda: self.initialize_game(4)).pack(pady=10)
+        
+        tk.Button(selection_content, text="← Back", font=("Helvetica", 11),
+                  bg=self.bg_color, fg=self.text_secondary, bd=0, command=self.show_menu).pack(pady=20)
+
+    def initialize_game(self, size):
+        self.size = size
         self.moves = 0
         self.start_time = time.time()
         self.setup_ui()
@@ -99,20 +140,34 @@ class NPuzzleGUI:
         self.clear_container()
         self.buttons = []
         
+        if self.size == 4:
+            self.root.geometry("500x820")
+            btn_font = ("Helvetica", 22, "bold")
+            btn_width = 4
+            btn_height = 2
+            title_font = ("Helvetica", 28, "bold")
+        else:
+            self.root.geometry("400x700")
+            btn_font = ("Helvetica", 26, "bold")
+            btn_width = 4
+            btn_height = 2
+            title_font = ("Helvetica", 24, "bold")
+            
         # Header
-        self.header = tk.Label(self.main_container, text="8-Puzzle Game", font=("Helvetica", 20, "bold"), 
-                              bg=self.bg_color, fg=self.text_primary, pady=20)
+        title_text = f"{self.size*self.size - 1}-Puzzle Game"
+        self.header = tk.Label(self.main_container, text=title_text, font=title_font, 
+                              bg=self.bg_color, fg=self.text_primary, pady=30)
         self.header.pack()
 
         # Game Board Frame
-        self.board_frame = tk.Frame(self.main_container, bg=self.card_color, padx=10, pady=10)
+        self.board_frame = tk.Frame(self.main_container, bg=self.card_color, padx=12, pady=12)
         self.board_frame.pack(padx=20, pady=10)
 
-        for i in range(9):
-            btn = tk.Button(self.board_frame, text="", font=("Helvetica", 24, "bold"), 
-                           width=4, height=2, bd=0, relief="flat", highlightthickness=0,
+        for i in range(self.size * self.size):
+            btn = tk.Button(self.board_frame, text="", font=btn_font, 
+                           width=btn_width, height=btn_height, bd=0, relief="flat", highlightthickness=0,
                            command=lambda idx=i: self.on_tile_click(idx))
-            btn.grid(row=i//3, column=i%3, padx=4, pady=4)
+            btn.grid(row=i//self.size, column=i%self.size, padx=6, pady=6)
             self.buttons.append(btn)
 
         # Controls Frame
@@ -132,22 +187,31 @@ class NPuzzleGUI:
         self.info_frame.pack(pady=10)
 
         self.moves_var = tk.StringVar(value="Moves: 0")
-        tk.Label(self.info_frame, textvariable=self.moves_var, font=("Helvetica", 12, "bold"),
+        tk.Label(self.info_frame, textvariable=self.moves_var, font=("Helvetica", 16, "bold"),
                  bg=self.bg_color, fg=self.accent_color).pack(side="left", padx=20)
 
         self.status_var = tk.StringVar(value="Solve it!")
-        tk.Label(self.info_frame, textvariable=self.status_var, font=("Helvetica", 11),
+        tk.Label(self.info_frame, textvariable=self.status_var, font=("Helvetica", 14),
                  bg=self.bg_color, fg=self.text_secondary).pack(side="left", padx=20)
 
+        # Home Button at the bottom
+        home_btn = tk.Button(self.main_container, text="🏠", font=("Helvetica", 24),
+                            bg=self.bg_color, fg=self.text_secondary, bd=0, 
+                            activebackground=self.bg_color, activeforeground=self.text_primary,
+                            cursor="hand2", command=self.show_menu)
+        home_btn.pack(side="bottom", pady=20)
+
     def update_board(self):
-        for i in range(9):
+        goal = list(range(1, self.size * self.size)) + [0]
+        for i in range(self.size * self.size):
             val = self.board[i]
             if val == 0:
                 self.buttons[i].config(text="", bg=self.card_color, state="disabled")
             else:
-                self.buttons[i].config(text=str(val), bg="#f1f5f9", fg="#1e293b", state="normal" if not self.is_solving else "disabled")
+                self.buttons[i].config(text=str(val), bg="#f1f5f9", fg="#1e293b", 
+                                      state="normal" if not self.is_solving else "disabled")
         
-        if self.board == [1, 2, 3, 4, 5, 6, 7, 8, 0] and not self.is_solving:
+        if self.board == goal and not self.is_solving:
             elapsed = time.time() - self.start_time
             self.play_sound('audio/win.wav')
             self.root.after(500, lambda: self.show_win_screen(elapsed))
@@ -158,8 +222,8 @@ class NPuzzleGUI:
         if self.is_solving: return
         
         blank_idx = self.board.index(0)
-        r1, c1 = divmod(idx, 3)
-        r2, c2 = divmod(blank_idx, 3)
+        r1, c1 = divmod(idx, self.size)
+        r2, c2 = divmod(blank_idx, self.size)
         
         if abs(r1-r2) + abs(c1-c2) == 1:
             self.board[idx], self.board[blank_idx] = self.board[blank_idx], self.board[idx]
@@ -169,15 +233,18 @@ class NPuzzleGUI:
 
     def shuffle_board(self):
         self.play_sound('audio/shuffle.wav')
-        self.board = logic.generate_solvable_puzzle()
+        self.board = logic.generate_solvable_puzzle(self.size)
         self.is_solving = False
+        self.btn_solve.config(state="normal")
+        self.btn_reset.config(state="normal")
         self.moves = 0
         self.start_time = time.time()
         self.update_board()
         self.status_var.set("Solve it!")
 
     def ai_solve(self):
-        if self.board == [1, 2, 3, 4, 5, 6, 7, 8, 0]:
+        goal = list(range(1, self.size * self.size)) + [0]
+        if self.board == goal:
             return
 
         self.is_solving = True
@@ -186,20 +253,23 @@ class NPuzzleGUI:
         self.status_var.set("AI thinking...")
         self.root.update()
 
-        path = solver.solve_puzzle(self.board)
+        # Run solver in background would be better, but for now we'll just wait
+        path = solver.solve_puzzle(self.board, self.size)
         if path:
             self.animate_solution(path)
         else:
             self.is_solving = False
-            self.update_board()
+            self.status_var.set("No solution found")
+            self.btn_solve.config(state="normal")
+            self.btn_reset.config(state="normal")
 
     def show_win_screen(self, elapsed_time):
         self.clear_container()
+        self.root.geometry("400x700")
         
         win_container = tk.Frame(self.main_container, bg=self.bg_color)
         win_container.place(relx=0.5, rely=0.5, anchor="center")
 
-        # Win Image (Animated) or Trophy Circle
         if self.win_frames:
             self.win_image_label = tk.Label(win_container, image=self.win_frames[0], bg=self.bg_color)
             self.win_image_label.pack(pady=20)
@@ -212,35 +282,30 @@ class NPuzzleGUI:
             trophy_frame.pack(pady=20)
             tk.Label(trophy_frame, text="🏆", font=("Helvetica", 40), bg="#16213e", fg=self.accent_color).place(relx=0.5, rely=0.5, anchor="center")
 
-        # Victory Text
         tk.Label(win_container, text="You Won! 🥳", font=("Helvetica", 32, "bold"),
                  bg=self.bg_color, fg=self.accent_color).pack(pady=(10, 5))
         
-        tk.Label(win_container, text="Masterful execution. The puzzle\nis complete.", 
+        tk.Label(win_container, text=f"Masterful execution. The {self.size*self.size-1}-puzzle\nis complete.", 
                  font=("Helvetica", 12), bg=self.bg_color, fg=self.text_secondary, justify="center").pack(pady=5)
 
-        # Stats Row
         stats_frame = tk.Frame(win_container, bg=self.bg_color)
         stats_frame.pack(pady=20)
 
-        # Moves Box
         moves_box = tk.Frame(stats_frame, bg=self.card_color, padx=15, pady=15, width=100, height=100)
         moves_box.pack_propagate(False)
         moves_box.pack(side="left", padx=10)
         tk.Label(moves_box, text="TOTAL\nMOVES", font=("Helvetica", 8, "bold"), bg=self.card_color, fg=self.text_secondary).pack()
         tk.Label(moves_box, text=str(self.moves), font=("Helvetica", 24, "bold"), bg=self.card_color, fg="#f1f5f9").pack()
 
-        # Time Box
         time_box = tk.Frame(stats_frame, bg=self.card_color, padx=15, pady=15, width=100, height=100)
         time_box.pack_propagate(False)
         time_box.pack(side="left", padx=10)
         tk.Label(time_box, text="TIME\nELAPSED", font=("Helvetica", 8, "bold"), bg=self.card_color, fg=self.text_secondary).pack()
         tk.Label(time_box, text=self.format_time(elapsed_time), font=("Helvetica", 20, "bold"), bg=self.card_color, fg=self.accent_color).pack()
 
-        # Action Buttons
         tk.Button(win_container, text="Play Again  →", font=("Helvetica", 14, "bold"),
                   bg=self.accent_color, fg="white", width=18, pady=12, relief="flat",
-                  cursor="hand2", command=self.start_game).pack(pady=20)
+                  cursor="hand2", command=self.show_size_selection).pack(pady=20)
 
         tk.Button(win_container, text="Back to Menu", font=("Helvetica", 11, "bold"),
                   bg=self.bg_color, fg=self.text_secondary, bd=0, activebackground=self.bg_color,
@@ -252,13 +317,13 @@ class NPuzzleGUI:
             
         self.current_win_frame = (self.current_win_frame + 1) % len(self.win_frames)
         self.win_image_label.config(image=self.win_frames[self.current_win_frame])
-        
-        # Schedule next frame (approx 80ms for smooth 12fps or adjust if needed)
         self.win_animation_id = self.root.after(80, self.play_win_animation)
 
     def animate_solution(self, path):
         if not path:
             self.is_solving = False
+            self.btn_solve.config(state="normal")
+            self.btn_reset.config(state="normal")
             self.update_board()
             return
         
@@ -266,7 +331,9 @@ class NPuzzleGUI:
         self.moves += 1
         self.update_board()
         self.status_var.set(f"Solving... {len(path)}")
-        self.root.after(200, lambda: self.animate_solution(path))
+        # Check if still in game (didn't go back to menu)
+        if hasattr(self, 'board_frame') and self.board_frame.winfo_exists():
+            self.root.after(200, lambda: self.animate_solution(path))
 
 if __name__ == "__main__":
     root = tk.Tk()
